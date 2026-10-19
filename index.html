@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launcher</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #111; }
+  body { display: flex; flex-direction: column; }
+
+  /* Persistent top bar: 10% */
+  header {
+    flex: 0 0 10%;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    background: #1b1b1f;
+    border-bottom: 1px solid #333;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  header button {
+    padding: 8px 16px;
+    border: 1px solid #3a3a42;
+    border-radius: 999px;
+    background: #26262c;
+    color: #e8e8ea;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  header button:hover { background: #33333b; }
+  header button.active { background: #4f6df5; border-color: #4f6df5; color: #fff; }
+  .spacer { flex: 1; }
+  #openNew, #logout {
+    color: #aaa; text-decoration: none; font-size: 13px;
+    padding: 8px 12px; border-radius: 999px; border: 1px solid #3a3a42;
+    background: transparent; cursor: pointer;
+  }
+  #openNew:hover, #logout:hover { color: #fff; background: #33333b; }
+
+  /* Changing area: 90% */
+  main { flex: 1 1 90%; position: relative; background: #fff; }
+  iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+  /* Login gate */
+  #login {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    background: #111;
+  }
+  #login form {
+    width: min(340px, 90vw);
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 28px; border-radius: 14px;
+    background: #1b1b1f; border: 1px solid #333;
+  }
+  #login h1 { font-size: 18px; color: #f0f0f2; margin-bottom: 4px; }
+  #login input {
+    padding: 10px 12px; border-radius: 8px;
+    border: 1px solid #3a3a42; background: #26262c; color: #fff; font-size: 15px;
+  }
+  #login input:focus { outline: none; border-color: #4f6df5; }
+  #login button {
+    padding: 10px; border: 0; border-radius: 8px;
+    background: #4f6df5; color: #fff; font-size: 15px; cursor: pointer;
+  }
+  #login button:hover { background: #6280ff; }
+  #err { color: #ff6b6b; font-size: 13px; min-height: 16px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form id="loginForm" autocomplete="off">
+    <h1>Sign in</h1>
+    <input id="uid" type="text" placeholder="ID" required autofocus>
+    <input id="pwd" type="password" placeholder="Password" required>
+    <div id="err"></div>
+    <button type="submit">Enter</button>
+  </form>
+</div>
+
+<header id="nav" class="hidden"></header>
+
+<main id="content" class="hidden">
+  <iframe id="frame" title="content" allow="clipboard-read; clipboard-write; fullscreen"></iframe>
+</main>
+
+<script>
+  const USER = "bongkar";
+  const PASS = "bongkar##";
+
+  const apps = [
+    { name: "Kalendre",  url: "https://kalendre.vercel.app" },
+    { name: "Note",      url: "https://pxnuliz.vercel.app" },
+    { name: "Threads",   url: "https://pxnulishandal.vercel.app" },
+    { name: "Akun goo",  url: "https://akungoog.vercel.app" },
+    { name: "Blog",      url: "https://blogungu.vercel.app" },
+    { name: "Notion",    url: "https://notionlo.vercel.app" }
+  ];
+
+  const nav = document.getElementById("nav");
+  const content = document.getElementById("content");
+  const frame = document.getElementById("frame");
+  const login = document.getElementById("login");
+  const buttons = [];
+  let built = false;
+
+  function select(i) {
+    frame.src = apps[i].url;
+    buttons.forEach((b, j) => b.classList.toggle("active", i === j));
+    openNew.href = apps[i].url;
+    try { localStorage.setItem("lastApp", i); } catch (e) {}
+  }
+
+  const openNew = document.createElement("a");
+  openNew.id = "openNew";
+  openNew.target = "_blank";
+  openNew.rel = "noopener";
+  openNew.textContent = "Open in new tab ↗";
+
+  const logout = document.createElement("button");
+  logout.id = "logout";
+  logout.textContent = "Log out";
+  logout.onclick = () => {
+    try { sessionStorage.removeItem("auth"); } catch (e) {}
+    location.reload();
+  };
+
+  function buildApp() {
+    if (built) return;
+    built = true;
+    apps.forEach((app, i) => {
+      const b = document.createElement("button");
+      b.textContent = app.name;
+      b.onclick = () => select(i);
+      nav.appendChild(b);
+      buttons.push(b);
+    });
+    const sp = document.createElement("div");
+    sp.className = "spacer";
+    nav.appendChild(sp);
+    nav.appendChild(openNew);
+    nav.appendChild(logout);
+  }
+
+  function unlock() {
+    login.classList.add("hidden");
+    nav.classList.remove("hidden");
+    content.classList.remove("hidden");
+    buildApp();
+    let start = 0;
+    try { start = Number(localStorage.getItem("lastApp")) || 0; } catch (e) {}
+    select(start < apps.length ? start : 0);
+  }
+
+  document.getElementById("loginForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const u = document.getElementById("uid").value.trim();
+    const p = document.getElementById("pwd").value;
+    if (u === USER && p === PASS) {
+      try { sessionStorage.setItem("auth", "1"); } catch (e) {}
+      unlock();
+    } else {
+      document.getElementById("err").textContent = "Wrong ID or password.";
+      document.getElementById("pwd").value = "";
+    }
+  });
+
+  let authed = false;
+  try { authed = sessionStorage.getItem("auth") === "1"; } catch (e) {}
+  if (authed) unlock();
+</script>
+</body>
+</html>
